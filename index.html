@@ -33,31 +33,40 @@
     </div>
 
     <script type="module">
-        import { GoogleGenAI } from "https://esm.run/@google/genai";
+        import { GoogleGenAI } from "https://esm.run/@google/genai@0.1.1";
 
-        const apiKey = localStorage.getItem("gemini_api_key") || prompt("Gemini APIキーを入力してください:");
-        if (apiKey) {
-            localStorage.setItem("gemini_api_key", apiKey);
+        let apiKey = localStorage.getItem("gemini_api_key");
+        if (!apiKey) {
+            apiKey = prompt("Gemini APIキーを入力してください:");
+            if (apiKey) {
+                localStorage.setItem("gemini_api_key", apiKey.trim());
+            }
         }
 
-        const ai = new GoogleGenAI({ apiKey: apiKey });
         let base64Image = null;
+        let mimeType = "image/jpeg";
 
         document.getElementById("imageInput").addEventListener("change", (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
+            mimeType = file.type || "image/jpeg";
             const reader = new FileReader();
             reader.onload = (uploadEvent) => {
-                base64Image = uploadEvent.target.result.split(",")[1];
+                const result = uploadEvent.target.result;
+                base64Image = result.split(",")[1];
                 const preview = document.getElementById("imagePreview");
-                preview.src = uploadEvent.target.result;
+                preview.src = result;
                 document.getElementById("previewContainer").classList.remove("hidden");
             };
             reader.readAsDataURL(file);
         });
 
         document.getElementById("analyzeBtn").addEventListener("click", async () => {
+            if (!apiKey) {
+                alert("APIキーが設定されていません。ページを再読み込みして入力してください。");
+                return;
+            }
             if (!base64Image) {
                 alert("チャート画像を選択してください。");
                 return;
@@ -69,12 +78,13 @@
             resultText.textContent = "分析中...";
 
             try {
+                const ai = new GoogleGenAI({ apiKey: apiKey });
                 const response = await ai.models.generateContent({
-                    model: 'gemini-3.8-flash',
+                    model: 'gemini-2.5-flash',
                     contents: [
                         {
                             inlineData: {
-                                mimeType: "image/jpeg",
+                                mimeType: mimeType,
                                 data: base64Image
                             }
                         },
@@ -86,7 +96,7 @@
 
                 resultText.textContent = response.text;
             } catch (error) {
-                resultText.textContent = "エラーが発生しました: " + error.message;
+                resultText.textContent = "エラーが発生しました: " + (error.message || error);
             }
         });
     </script>
